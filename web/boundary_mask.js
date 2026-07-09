@@ -44,6 +44,17 @@
   const RING_COUNT = 6; // number of concentric feather bands
   const MAX_WASH = 0.85;
 
+  // DORMANT BLOCK (focus-picker Task 5): the smoothstep-feather band
+  // machinery below (fadeMath, ringsOf's downstream helpers centroidOf/
+  // meanRadiusOf/scaleRing/bufferRings/__bandAnnulus/buildFeatherRings/
+  // screenBandOffsetDeg, plus RING_COUNT/MAX_WASH/METERS_PER_DEGREE above)
+  // is no longer called by applyBoundaryFade, which was simplified to a
+  // single near-solid wash (see applyBoundaryFade below). Left in place
+  // (not deleted) because window.__bandAnnulus and fade-math.js's pure
+  // functions are still exercised by boundary-buffer.test.js / fade.test.js,
+  // and keeping this dormant keeps the Task 5 diff minimal and low-risk. A
+  // future cleanup task may delete it once those tests are retired too.
+
   // fadeMath: Task 12's pure smoothstep/featherBandFraction functions live in
   // web-src/fade-math.js (ES module, unit-tested) and are exposed on
   // window.fadeMath by main.jsx's import side-effect. This IIFE is a plain
@@ -274,57 +285,43 @@
     return Math.max(bandOffsetDeg, 1e-5);
   }
 
+  // Task (focus-picker): a SINGLE near-solid wash outside the focus polygon —
+  // world ring with the polygon punched as hole(s) — replacing the smoothstep
+  // feather bands. Reads window.__WASH_STRENGTH (default 0.93) so the UI slider
+  // can dial it live. The old buildFeatherRings/band loop is retired (dormant
+  // below; nothing calls it).
+  if (typeof window.__WASH_STRENGTH !== "number") window.__WASH_STRENGTH = 0.93;
+
   // Fade everything OUTSIDE polygonGeoJSON toward the theme land color, on
   // the live MapLibre map. polygonGeoJSON may be a Polygon/MultiPolygon
   // geometry or a Feature wrapping one.
   window.applyBoundaryFade = function (map, polygonGeoJSON, theme) {
     if (!map || !polygonGeoJSON) return;
-
     const rings = ringsOf(polygonGeoJSON);
     if (!rings.length) return;
-
     const landColor = (theme && theme.map && theme.map.land) || "#f3ecdd";
-    const bandOffsetDeg = screenBandOffsetDeg(map, rings);
-    const { bands, outsideAll } = buildFeatherRings(rings, bandOffsetDeg, polygonGeoJSON, window.turf);
+    const wash = window.__WASH_STRENGTH;
 
-    // Ensure the shared source (for the fully-washed outer region) + each
-    // ring band's own source/layer exist, in ascending band order so band 0
-    // (faintest, nearest the boundary) sits directly outside the boundary
-    // and later bands paint further out — MapLibre draws layers in the
-    // order they were added, so add innermost-first, outer-wash-last.
-    if (map.getSource(SRC)) map.getSource(SRC).setData(outsideAll);
-    else map.addSource(SRC, { type: "geojson", data: outsideAll });
+    // world polygon with the focus polygon's outer rings as holes
+    const holes = rings; // each linear ring becomes a hole
+    const outside = {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [WORLD_RING, ...holes] },
+    };
+    if (map.getSource(SRC)) map.getSource(SRC).setData(outside);
+    else map.addSource(SRC, { type: "geojson", data: outside });
 
     if (!map.getLayer(FILL_PREFIX + "outer")) {
       map.addLayer({
         id: FILL_PREFIX + "outer", type: "fill", source: SRC,
-        paint: { "fill-color": landColor, "fill-opacity": MAX_WASH },
+        paint: { "fill-color": landColor, "fill-opacity": wash },
       });
     } else {
       map.setPaintProperty(FILL_PREFIX + "outer", "fill-color", landColor);
+      map.setPaintProperty(FILL_PREFIX + "outer", "fill-opacity", wash);
     }
 
-    for (const band of bands) {
-      const srcId = band.id + "-src";
-      if (map.getSource(srcId)) map.getSource(srcId).setData(band.feature);
-      else map.addSource(srcId, { type: "geojson", data: band.feature });
-
-      if (!map.getLayer(band.id)) {
-        map.addLayer(
-          {
-            id: band.id, type: "fill", source: srcId,
-            paint: { "fill-color": landColor, "fill-opacity": band.alpha },
-          },
-          FILL_PREFIX + "outer" // insert each band BELOW the outer flat-wash layer
-        );
-      } else {
-        map.setPaintProperty(band.id, "fill-color", landColor);
-        map.setPaintProperty(band.id, "fill-opacity", band.alpha);
-      }
-    }
-
-    // Dashed hairline on the boundary edge (keep legible) — stays on the
-    // TRUE boundary, unaffected by the feather approximation.
+    // dashed hairline on the true boundary edge (keep the shape legible)
     const geometry = polygonGeoJSON.type === "Feature" ? polygonGeoJSON.geometry : polygonGeoJSON;
     const edge = { type: "Feature", geometry };
     if (map.getSource(LINE)) {
