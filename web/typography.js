@@ -72,7 +72,9 @@
     const center = o.center || {};
     const showCredits = o.showCredits !== false;
     const dimScale = Math.max(0.45, Math.min(W, H) / REF);
-    const cx = W / 2;
+    const tp = o.titlePos && typeof o.titlePos.x === "number" ? o.titlePos : null;
+    const cx = tp ? tp.x * W : W / 2;
+    const cityY = tp ? tp.y * H : H * 0.80;
     const fonts = o.fonts || {};
     const displayFont = fonts.display || "Alegreya";
     const bodyFont = fonts.body || "Lora";
@@ -103,7 +105,7 @@
     // city — bold display face, the anchor of the block
     ctx.font = `700 ${Math.round(54 * dimScale * titleScale)}px "${displayFont}", ${genericDisplay}`;
     ctx.globalAlpha = 1;
-    ctx.fillText(o.city || "", cx, H * 0.80);
+    ctx.fillText(o.city || "", cx, cityY);
 
     // divider rule spanning the middle fifth (40%→60% of width)
     ctx.save();
@@ -111,20 +113,20 @@
     ctx.strokeStyle = ink;
     ctx.lineWidth = Math.max(1, Math.round(1.5 * dimScale));
     ctx.beginPath();
-    ctx.moveTo(W * 0.40, H * 0.855);
-    ctx.lineTo(W * 0.60, H * 0.855);
+    ctx.moveTo(W * 0.40, cityY + H * 0.055);
+    ctx.lineTo(W * 0.60, cityY + H * 0.055);
     ctx.stroke();
     ctx.restore();
 
     // country — light body face, uppercased, tracked out
     ctx.font = `400 ${Math.round(22 * dimScale)}px "${bodyFont}", ${genericBody}`;
     ctx.globalAlpha = 0.9;
-    ctx.fillText(String(o.country || "").toUpperCase(), cx, H * 0.89);
+    ctx.fillText(String(o.country || "").toUpperCase(), cx, cityY + H * 0.09);
 
     // coordinates — VN-safe sans, muted
     ctx.font = `400 ${Math.round(18 * dimScale)}px "${monoFont}", ${genericMono}`;
     ctx.globalAlpha = 0.75;
-    ctx.fillText(formatCoordinates(center.lat, center.lon), cx, H * 0.925);
+    ctx.fillText(formatCoordinates(center.lat, center.lon), cx, cityY + H * 0.125);
 
     // corner credits: data source bottom-right, our app credit bottom-left.
     if (showCredits) {

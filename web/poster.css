@@ -14,3 +14,27 @@ html, body { margin: 0; height: 100%; font-family: "Be Vietnam Pro", system-ui, 
 @media (max-width: 780px) {
   #preact-panel-root { width: 100%; height: 100%; border-left: none; }
 }
+/* Task 7: WYSIWYG export preview overlay (web/export_preview.js) — a crop
+   frame matching the poster's aspect ratio over the live map, with the
+   outside dimmed via an oversized box-shadow, plus a draggable title chip. */
+.xp-frame {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+  z-index: 3;
+}
+.xp-title {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  padding: 4px 10px;
+  background: rgba(27, 23, 16, 0.75);
+  color: #f4efe2;
+  font-size: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  z-index: 4;
+  touch-action: none;
+  user-select: none;
+}

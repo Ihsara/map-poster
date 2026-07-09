@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>map-poster — make a map poster of anywhere</title>
+<meta name="description" content="Turn OpenStreetMap into a print-quality poster — pick an area, style it, export at 300 DPI.">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="poster.css?v=20260709fix">
+<style>
+  :root {
+    --ink: #211d16;
+    --ink-soft: #514a3c;
+    --paper: #faf6ec;
+    --paper-panel: #f1ead9;
+    --rule: #ddd2b8;
+    --accent: #7a4a2b;
+    --accent-ink: #fdf9ef;
+    --max-w: 1120px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f4efe2;
+      --ink-soft: #c9c0ac;
+      --paper: #17140f;
+      --paper-panel: #1f1b14;
+      --rule: #3a3226;
+      --accent: #d9a066;
+      --accent-ink: #1b1710;
+    }
+  }
+
+  html, body.landing {
+    margin: 0;
+    height: auto;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Lora", Georgia, serif;
+    overflow-x: hidden;
+  }
+  body.landing {
+    display: block;
+  }
+  body.landing * { box-sizing: border-box; }
+  body.landing img { max-width: 100%; display: block; }
+
+  .wrap {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    text-align: center;
+    padding: clamp(4rem, 10vw, 7rem) 0 clamp(3rem, 7vw, 4.5rem);
+  }
+  .hero .eyebrow {
+    font-family: "Be Vietnam Pro", system-ui, sans-serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 1.25rem;
+  }
+  .hero h1 {
+    font-family: "Alegreya", Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(2.2rem, 5.4vw, 4rem);
+    line-height: 1.08;
+    margin: 0 auto 1.1rem;
+    max-width: 18ch;
+    letter-spacing: -0.01em;
+  }
+  .hero p.subhead {
+    font-size: clamp(1.02rem, 1.6vw, 1.2rem);
+    color: var(--ink-soft);
+    max-width: 46ch;
+    margin: 0 auto 2.25rem;
+    line-height: 1.55;
+  }
+  .cta {
+    display: inline-block;
+    font-family: "Be Vietnam Pro", system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    color: var(--accent-ink);
+    background: var(--accent);
+    padding: 0.85rem 1.85rem;
+    border-radius: 2px;
+    letter-spacing: 0.01em;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+  }
+  .cta:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
+  .cta:active { transform: translateY(0); }
+
+  /* ---------- Samples ---------- */
+  .samples-section { padding: clamp(1rem, 4vw, 2rem) 0 clamp(4rem, 8vw, 6rem); }
+  .samples-section h2,
+  .guide h2 {
+    font-family: "Alegreya", Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+    text-align: center;
+    margin: 0 0 2.25rem;
+  }
+  .samples {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(1.25rem, 3vw, 2rem);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .samples figure {
+    margin: 0;
+    background: var(--paper-panel);
+    border: 1px solid var(--rule);
+    padding: 0.6rem 0.6rem 1rem;
+    border-radius: 3px;
+  }
+  .samples img {
+    width: 100%;
+    height: auto;
+    border-radius: 1px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  }
+  .samples figcaption {
+    font-family: "Be Vietnam Pro", system-ui, sans-serif;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    text-align: center;
+    margin-top: 0.85rem;
+    letter-spacing: 0.02em;
+  }
+  @media (max-width: 760px) {
+    .samples { grid-template-columns: 1fr; max-width: 420px; margin-inline: auto; }
+  }
+
+  /* ---------- Guide ---------- */
+  .guide { padding: 0 0 clamp(4rem, 8vw, 6rem); }
+  .guide ol {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+  }
+  .guide li {
+    counter-increment: step;
+    display: flex;
+    gap: 1.1rem;
+    padding: 1.15rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .guide li:last-child { border-bottom: 1px solid var(--rule); }
+  .guide li::before {
+    content: counter(step);
+    font-family: "Alegreya", Georgia, serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--accent);
+    flex: 0 0 auto;
+    width: 1.6em;
+    line-height: 1.3;
+  }
+  .guide li p {
+    margin: 0;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+  .guide li b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- CTA repeat ---------- */
+  .cta-repeat {
+    text-align: center;
+    padding: 0 0 clamp(4rem, 8vw, 6rem);
+  }
+
+  /* ---------- Footer ---------- */
+  footer.site-footer {
+    border-top: 1px solid var(--rule);
+    padding: 1.75rem 0 2.5rem;
+    text-align: center;
+  }
+  footer.site-footer small {
+    font-family: "Be Vietnam Pro", system-ui, sans-serif;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body class="landing">
+
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">map-poster</p>
+      <h1>Make a map poster of anywhere</h1>
+      <p class="subhead">Turn OpenStreetMap into a print-quality poster — pick an area, style it, export at 300&nbsp;DPI.</p>
+      <a class="cta" href="poster.html">Open the poster maker &rarr;</a>
+    </div>
+  </header>
+
+  <section class="samples-section">
+    <div class="wrap">
+      <h2>Three themes, one worked example</h2>
+      <ul class="samples">
+        <li>
+          <figure>
+            <img src="assets/samples/sample-carrara.png" alt="Map poster of Bình Thạnh, Ho Chi Minh City, rendered in the cream and ink Carrara theme, A3 portrait" loading="lazy" width="1000" height="1414">
+            <figcaption>Bình Thạnh · Carrara · A3</figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <img src="assets/samples/sample-noir.png" alt="Map poster of Bình Thạnh, Ho Chi Minh City, rendered in the dark high-contrast Noir theme, A3 portrait" loading="lazy" width="1000" height="1414">
+            <figcaption>Bình Thạnh · Noir · A3</figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <img src="assets/samples/sample-song-sai-gon.png" alt="Map poster of Bình Thạnh, Ho Chi Minh City, rendered in the warm sepia and teal Sông Sài Gòn palette, A3 portrait" loading="lazy" width="1000" height="1414">
+            <figcaption>Bình Thạnh · Sông Sài Gòn · A3</figcaption>
+          </figure>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="guide">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <ol>
+        <li><p><b>Pick an area.</b> The map opens on Bình Thạnh — the worked example above — but you can pan and zoom to anywhere on Earth.</p></li>
+        <li><p><b>Style it.</b> Choose a theme, highlight place categories, toggle ward borders, and pair fonts for the title.</p></li>
+        <li><p><b>Export.</b> Frame the crop, place the title, and download a print-resolution PNG ready for the wall.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="cta-repeat">
+    <a class="cta" href="poster.html">Open the poster maker &rarr;</a>
+  </div>
+
+  <footer class="site-footer">
+    <small>&copy; OpenStreetMap contributors &middot; map-poster</small>
+  </footer>
+
+</body>
+</html>

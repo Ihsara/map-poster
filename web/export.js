@@ -23,6 +23,15 @@
     return flat;
   }
 
+  // Pure: maps the preview's frameBounds (centered max-fit rect of the poster
+  // aspect within the live canvas) to a source-canvas sub-rect {sx,sy,sw,sh}
+  // so the export samples exactly the framed region — not a blind cover-fit.
+  function __computeSourceCrop(srcWH, aspect, ep) {
+    const b = ep.frameBounds(srcWH, aspect);
+    return { sx: b.x, sy: b.y, sw: b.w, sh: b.h };
+  }
+  window.__computeSourceCrop = __computeSourceCrop;
+
   async function exportPoster(state, layouts) {
     const lay = iterLayouts(layouts)[state.layoutId];
     const W = cmToPx(lay.posterWidthCm), H = cmToPx(lay.posterHeightCm);
@@ -35,12 +44,11 @@
     ctx.fillStyle = state.theme.map.land;
     ctx.fillRect(0, 0, W, H);
 
-    // 2) map raster from MapLibre's own canvas (cover-fit into W×H)
+    // 2) map raster from MapLibre's own canvas, cropped to the same frame the
+    // preview shows (WYSIWYG) — not a blind cover-fit.
     const src = window.map.getCanvas();
-    const sr = src.width / src.height, dr = W / H;
-    let dw = W, dh = H, dx = 0, dy = 0;
-    if (sr > dr) { dh = H; dw = H * sr; dx = (W - dw) / 2; }
-    else { dw = W; dh = W / sr; dy = (H - dh) / 2; }
+    const aspect = W / H;
+    const crop = __computeSourceCrop({ w: src.width, h: src.height }, aspect, window.exportPreview);
     // ensure the WebGL frame is current — but never hang forever if tiles never
     // settle (e.g. a bad/absent key): race "idle" against a 4s timeout so export
     // always completes with whatever frame is current.
@@ -51,7 +59,20 @@
       window.map.once("idle", finish);
       setTimeout(finish, 4000);
     });
-    ctx.drawImage(src, dx, dy, dw, dh);
+    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+
+    // Project [lng,lat] -> poster px through the same crop rect used above,
+    // so density points (bigVenues markers) line up with what was drawn.
+    // window.map.project() returns CSS px; the source canvas is
+    // devicePixelRatio-scaled, so first convert to source-canvas px, then
+    // remap through the crop rect into poster px.
+    const rect = src.getBoundingClientRect();
+    const scaleX = src.width / rect.width, scaleY = src.height / rect.height;
+    const toPoster = (lng, lat) => {
+      const p = window.map.project([lng, lat]);      // CSS px
+      const sxp = p.x * scaleX, syp = p.y * scaleY;  // source-canvas px
+      return [(sxp - crop.sx) / crop.sw * W, (syp - crop.sy) / crop.sh * H];
+    };
 
     // 3) 25/25 land fade top + bottom
     window.applyFades(ctx, W, H, state.theme.map.land);
@@ -82,12 +103,40 @@
       ]).catch(() => {});
     }
 
+    // Deterministic WYSIWYG title position: when the user has dragged the
+    // title chip, state.titlePos is {x,y} and the export honors it exactly —
+    // the scorer never runs in that case. In AUTO mode (state.titlePos is
+    // null), project window.aoiStore.current.bigVenues (baked, sorted, notable
+    // busy-place markers) through the crop into poster px and hand them to
+    // window.titlePlacement.pick(...) as the density signal, so the title
+    // auto-avoids busy zones instead of always sitting centered-lower. Both
+    // the projection (given a fixed map view) and the scorer are pure/
+    // deterministic, so a given view + AUTO always yields the same title
+    // position. If bigVenues is empty/absent, no in-frame points survive the
+    // filter, or the scorer module isn't loaded, fall back to the previous
+    // deterministic behavior (undefined -> drawPosterText's centered-lower
+    // default) so export never crashes and stays reproducible.
+    let titlePos = state.titlePos || undefined;
+    if (!state.titlePos && window.titlePlacement && window.aoiStore && window.aoiStore.current) {
+      const venues = window.aoiStore.current.bigVenues || [];
+      const ptsPx = venues
+        .filter((v) => v && Array.isArray(v.marker))
+        .map((v) => toPoster(v.marker[0], v.marker[1]))
+        .filter(([x, y]) => x >= 0 && x <= W && y >= 0 && y <= H); // in-frame only
+      if (ptsPx.length) {
+        const titleWH = { w: W * 0.5, h: H * 0.12 }; // approx title block footprint
+        const r = window.titlePlacement.pick(ptsPx, { w: W, h: H }, titleWH, { threshold: 8 });
+        if (r && typeof r.x === "number" && typeof r.y === "number") titlePos = { x: r.x, y: r.y };
+      }
+    }
+
     window.drawPosterText(ctx, {
       width: W, height: H, theme: state.theme,
       center: { lat: state.center[1], lon: state.center[0] },
       city: state.city, country: state.country,
       fonts: state.fonts,
       titleSizeScale: state.titleSizeScale,
+      titlePos,
       attribution: (window.basemapProvider && window.basemapProvider.attribution &&
                     window.basemapProvider.attribution()) || "© OpenStreetMap contributors",
     });

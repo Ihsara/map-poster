@@ -111,23 +111,87 @@
 
   const WORLD_RING = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
 
+  // Degrees-to-meters conversion for turf.buffer's meters-based offsets.
+  // 111320 m/deg is the standard equatorial-degree approximation (good
+  // enough for a soft feather aura, not a survey-grade conversion).
+  const METERS_PER_DEGREE = 111320;
+
+  // Buffer polygonGeoJSON outward by offsetMeters using turf.buffer (a true
+  // geodesic offset — exact on concave shapes, unlike scale-from-centroid).
+  // Returns { rings, mode } — rings is null when turf is unavailable so the
+  // caller can fall back to the centroid-scale approximation.
+  function bufferRings(polygonGeoJSON, offsetMeters, turf) {
+    if (turf && typeof turf.buffer === "function") {
+      const f = polygonGeoJSON.type === "Feature"
+        ? polygonGeoJSON : { type: "Feature", geometry: polygonGeoJSON };
+      const b = turf.buffer(f, offsetMeters, { units: "meters" });
+      return { rings: ringsOf(b), mode: "turf" };
+    }
+    return { rings: null, mode: "fallback" };
+  }
+
+  // Build ONE band annulus feature: the polygon buffered outward by
+  // outerOffsetMeters, with the ORIGINAL boundary rings punched out as
+  // holes. Exposed for unit test + wiring (window.__bandAnnulus below).
+  // Uses turf.buffer when present (see module header for why this replaces
+  // the old scale-from-centroid approximation on concave shapes); falls
+  // back to null rings (mode "fallback") when turf is unavailable, letting
+  // the caller run the original scale-from-centroid path unchanged.
+  function __bandAnnulus(polygonGeoJSON, outerOffsetMeters, turf) {
+    const outer = bufferRings(polygonGeoJSON, outerOffsetMeters, turf);
+    const boundaryRings = ringsOf(polygonGeoJSON);
+    const outerRings = outer.rings || boundaryRings;
+    return {
+      __mode: outer.mode,
+      rings: outer.rings,
+      feature: {
+        type: "Feature",
+        geometry: {
+          type: "MultiPolygon",
+          coordinates: outerRings.map(
+            (r, i) => [r, boundaryRings[i] || boundaryRings[0]]
+          ),
+        },
+      },
+    };
+  }
+  window.__bandAnnulus = __bandAnnulus;
+
   // Build the RING_COUNT concentric feather-band FILL features: each is a
   // world-ring-with-holes annulus between two successive buffer offsets of
   // the boundary, painted at a smoothstep-ramped alpha. bandOffsetDeg is the
   // OUTER edge's buffer distance (in degrees) for the whole feather band
   // (i.e. band k's outer ring is buffered by bandOffsetDeg * (k+1)/RING_COUNT).
-  function buildFeatherRings(rings, bandOffsetDeg) {
+  //
+  // When turf is available (window.turf, vendored in web/vendor/turf.min.js)
+  // each band's outer ring is a TRUE geodesic buffer of the original
+  // boundary via turf.buffer — exact on concave shapes, fixing the "Bình
+  // Quới vanish" pinch that scale-from-centroid produced on river-hugging
+  // inlets. When turf is unavailable, the whole original scale-from-
+  // centroid path runs unchanged as the fallback.
+  function buildFeatherRings(rings, bandOffsetDeg, polygonGeoJSON, turf) {
     const centroid = centroidOf(rings);
     const meanRadius = Math.max(meanRadiusOf(rings, centroid), 1e-6);
     const { smoothstep } = fadeMath();
+
+    const useTurf = !!(turf && typeof turf.buffer === "function");
+    window.__boundaryBufferMode = useTurf ? "turf" : "fallback";
 
     const bands = [];
     let innerRings = rings; // band 0's inner edge is the true boundary itself
     for (let k = 0; k < RING_COUNT; k++) {
       const outerFraction = (k + 1) / RING_COUNT;
       const outerOffsetDeg = bandOffsetDeg * outerFraction;
-      const outerScale = 1 + outerOffsetDeg / meanRadius;
-      const outerRings = rings.map((ring) => scaleRing(ring, centroid, outerScale));
+
+      let outerRings;
+      if (useTurf) {
+        const offsetMeters = outerOffsetDeg * METERS_PER_DEGREE;
+        const annulus = __bandAnnulus(polygonGeoJSON, offsetMeters, turf);
+        outerRings = annulus.rings || rings;
+      } else {
+        const outerScale = 1 + outerOffsetDeg / meanRadius;
+        outerRings = rings.map((ring) => scaleRing(ring, centroid, outerScale));
+      }
 
       // Annulus band = a MultiPolygon whose each element is ONE polygon of
       // [outerRing, innerRing] — outer ring with the inner ring punched out
@@ -221,7 +285,7 @@
 
     const landColor = (theme && theme.map && theme.map.land) || "#f3ecdd";
     const bandOffsetDeg = screenBandOffsetDeg(map, rings);
-    const { bands, outsideAll } = buildFeatherRings(rings, bandOffsetDeg);
+    const { bands, outsideAll } = buildFeatherRings(rings, bandOffsetDeg, polygonGeoJSON, window.turf);
 
     // Ensure the shared source (for the fully-washed outer region) + each
     // ring band's own source/layer exist, in ascending band order so band 0
