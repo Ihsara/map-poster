@@ -1,0 +1,22 @@
+@font-face { font-family:"Alegreya"; font-weight:700; font-display:swap;
+  src:url("alegreya-700.woff2") format("woff2"); }
+@font-face { font-family:"Lora"; font-weight:400; font-display:swap;
+  src:url("lora-400.woff2") format("woff2"); }
+@font-face { font-family:"Be Vietnam Pro"; font-weight:400; font-display:swap;
+  src:url("bvp-400.woff2") format("woff2"); }
+@font-face { font-family:"Be Vietnam Pro"; font-weight:600; font-display:swap;
+  src:url("bvp-600.woff2") format("woff2"); }
+@font-face { font-family:"Be Vietnam Pro"; font-weight:700; font-display:swap;
+  src:url("bvp-700.woff2") format("woff2"); }
+@font-face { font-family:"EB Garamond"; font-weight:400; font-display:swap;
+  src:url("ebgaramond-400.woff2") format("woff2"); }
+@font-face { font-family:"EB Garamond"; font-weight:700; font-display:swap;
+  src:url("ebgaramond-700.woff2") format("woff2"); }
+/* Task 7 Advanced-font picker override: previously Noto Sans was vendored
+   here as the one Advanced face judged export-gate-verified. Final-review
+   fix-pass dropped it too (final-review fix wave) — it is vendored at 400
+   only, so the display role (weight 700) still synthesizes/faux-bolds it,
+   the same defect that got Spectral and IBM Plex Sans dropped from
+   ADVANCED_FONTS earlier in Task 7. Its 400-only woff2 + this @font-face
+   rule have been removed to match. ADVANCED_FONTS (font-pairings.js) is
+   empty until a real 700-weight woff2 is vendored + VN-gate-verified. */
