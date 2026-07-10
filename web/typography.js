@@ -102,6 +102,26 @@
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = ink;
 
+    // Round 5: opt-in anti-collision scrim — a soft land-colored backing behind
+    // the text block so it lifts off a busy map. Default OFF (o.scrim falsy) =>
+    // byte-identical to before. Bounded to the text band, feathered L/R so it
+    // reads as part of the plate, not a UI card. (spec 2026-07-11 §C)
+    if (o.scrim) {
+      const land = (o.theme && o.theme.map && o.theme.map.land) || "#f3ecdd";
+      const sx0 = W * 0.30, sx1 = W * 0.70;
+      const sy0 = cityY - H * 0.06, sy1 = cityY + H * 0.14;
+      const bandColor = hexToRgba(land, 0.35);
+      const edgeColor = hexToRgba(land, 0);
+      ctx.save();
+      const grad = ctx.createLinearGradient(sx0, 0, sx1, 0);
+      grad.addColorStop(0, edgeColor);
+      grad.addColorStop(0.5, bandColor);
+      grad.addColorStop(1, edgeColor);
+      ctx.fillStyle = grad;
+      ctx.fillRect(sx0, sy0, sx1 - sx0, sy1 - sy0);
+      ctx.restore();
+    }
+
     // city — bold display face, the anchor of the block
     ctx.font = `700 ${Math.round(54 * dimScale * titleScale)}px "${displayFont}", ${genericDisplay}`;
     ctx.globalAlpha = 1;

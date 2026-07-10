@@ -24,17 +24,25 @@ html, body { margin: 0; height: 100%; font-family: "Be Vietnam Pro", system-ui, 
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
   z-index: 3;
 }
+.xp-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+}
+/* Task 6: the chip becomes a transparent drag handle over the canvas-rendered
+   title — the WYSIWYG canvas paints the actual title text; this div keeps the
+   hit-area/box so dragging still works, but is invisible. */
 .xp-title {
   position: absolute;
   transform: translate(-50%, -50%);
-  cursor: grab;
+  cursor: move;
   padding: 4px 10px;
-  background: rgba(27, 23, 16, 0.75);
-  color: #f4efe2;
+  background: transparent;
+  color: transparent;
   font-size: 12px;
   border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  z-index: 4;
+  border: 1px solid transparent;
+  z-index: 6;
   touch-action: none;
   user-select: none;
 }

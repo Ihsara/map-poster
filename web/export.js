@@ -116,19 +116,20 @@
     // filter, or the scorer module isn't loaded, fall back to the previous
     // deterministic behavior (undefined -> drawPosterText's centered-lower
     // default) so export never crashes and stays reproducible.
-    let titlePos = state.titlePos || undefined;
-    if (!state.titlePos && window.titlePlacement && window.aoiStore && window.aoiStore.current) {
+    // Round 5: resolve the title position through the shared resolver so the
+    // preview and the export agree exactly. Project the in-frame bigVenues to
+    // poster px (unchanged from before), then hand them to window.titleResolve.
+    let venuesPx = [];
+    if (!state.titlePos && window.aoiStore && window.aoiStore.current) {
       const venues = window.aoiStore.current.bigVenues || [];
-      const ptsPx = venues
+      venuesPx = venues
         .filter((v) => v && Array.isArray(v.marker))
         .map((v) => toPoster(v.marker[0], v.marker[1]))
-        .filter(([x, y]) => x >= 0 && x <= W && y >= 0 && y <= H); // in-frame only
-      if (ptsPx.length) {
-        const titleWH = { w: W * 0.5, h: H * 0.12 }; // approx title block footprint
-        const r = window.titlePlacement.pick(ptsPx, { w: W, h: H }, titleWH, { threshold: 8 });
-        if (r && typeof r.x === "number" && typeof r.y === "number") titlePos = { x: r.x, y: r.y };
-      }
+        .filter(([x, y]) => x >= 0 && x <= W && y >= 0 && y <= H);
     }
+    const titlePos = (window.titleResolve
+      ? window.titleResolve({ titlePos: state.titlePos || null, venuesPx, W, H })
+      : (state.titlePos || undefined));
 
     window.drawPosterText(ctx, {
       width: W, height: H, theme: state.theme,
@@ -137,6 +138,7 @@
       fonts: state.fonts,
       titleSizeScale: state.titleSizeScale,
       titlePos,
+      scrim: true,
       attribution: (window.basemapProvider && window.basemapProvider.attribution &&
                     window.basemapProvider.attribution()) || "© OpenStreetMap contributors",
     });
