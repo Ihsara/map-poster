@@ -145,7 +145,16 @@
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `map-poster-${state.layoutId}.png`;
+      // filename: place_theme_layout_date — mirror of web-src/filename.js + slug.js
+      // (đ→d BEFORE NFKD, else "Gia Định" → gia-inh). Keep in sync with those files.
+      const _slug = (s) => {
+        const m = String(s || "").replace(/đ/g, "d").replace(/Đ/g, "D");
+        const a = m.normalize("NFKD").replace(/[̀-ͯ]/g, "");
+        return a.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "poster";
+      };
+      const _date = new Date().toISOString().slice(0, 10); // browser-time OK (not a bake script)
+      const _themeId = state.themeId || "theme";
+      a.href = url; a.download = `${_slug(state.city)}_${_themeId}_${state.layoutId}_${_date}.png`;
       a.click(); URL.revokeObjectURL(url);
     }, "image/png");
   }

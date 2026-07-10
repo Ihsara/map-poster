@@ -15,13 +15,16 @@
     return { x: (CW - w) / 2, y: (CH - h) / 2, w, h };
   }
 
-  let els = null, state = { aspect: 1, titlePos: { x: 0.5, y: 0.8 }, onMove: null };
+  let els = null, state = { aspect: 1, titlePos: { x: 0.5, y: 0.8 }, onMove: null, title: "Title", visible: false };
 
   function ensureEls(container) {
     if (els) return els;
     const frame = document.createElement("div"); frame.className = "xp-frame";
     const chip = document.createElement("div"); chip.className = "xp-title";
-    chip.textContent = "Title";
+    chip.textContent = state.title;
+    // Default hidden until Preview is explicitly turned on (setVisible).
+    frame.style.display = "none";
+    chip.style.display = "none";
     container.appendChild(frame); container.appendChild(chip);
     // drag the chip within the frame; report normalized coords
     let drag = false;
@@ -66,5 +69,16 @@
 
   window.exportPreview = { cropAspect, frameBounds, mount,
     setAspect(a){ state.aspect=a; layoutEls(); },
-    setTitlePos(p){ state.titlePos=p; layoutEls(); } };
+    setTitlePos(p){ state.titlePos=p; layoutEls(); },
+    setTitle(t){
+      state.title = t || "Title";
+      if (els) els.chip.textContent = state.title;
+    },
+    setVisible(on){
+      state.visible = !!on;
+      if (els) {
+        els.frame.style.display = on ? "block" : "none";
+        els.chip.style.display = on ? "block" : "none";
+      }
+    } };
 })();

@@ -22,6 +22,61 @@
     "religious_organization","travel","structure_and_geography","__uncategorized__"];
   const NGU_SAC = [10, 45, 130, 210, 275];        // đỏ vàng lục lam (+ huyền via low-sat)
   const LACQUER = [355, 42, 160, 30];             // oxblood gold jade ivory-ish
+  const HARMONY_STEP = 18;   // min gap between adjacent-index hues (degrees)
+  const PURPLE_LO = 270, PURPLE_HI = 320; // absolute band to avoid, any theme
+  const _cache = new Map(); // key: mode + "|" + accentHex + "|" + domainId -> hue
+  const _fanCache = new Map(); // key: accentHex -> offsets[] (index-aligned), memoized per accent
+
+  // Smallest |k| (0..359) such that base + dir*k (dir = +1 or -1) lands inside
+  // the absolute purple band [PURPLE_LO, PURPLE_HI]. Returns 360 if it never does.
+  function bandDistance(base, dir) {
+    for (let k = 0; k <= 359; k++) {
+      const h = ((base + dir * k) % 360 + 360) % 360;
+      if (h >= PURPLE_LO && h <= PURPLE_HI) return k;
+    }
+    return 360;
+  }
+
+  // Builds a fan of hue offsets around `base`: alternating +/-18°, +36°, -36°...
+  // (index 0 stays on-base). If growing one side would cross the absolute
+  // purple band, that side closes permanently and every remaining index
+  // routes to the other (still-open) side -- so no domain ever lands in the
+  // purple band and no two domains collide on the same hue, at the cost of
+  // occasionally exceeding the nominal analogous span for a few domains at
+  // the tail of a long fan (rare: only bases within ~132 deg of the exact
+  // opposite of the purple band's center trigger this).
+  function buildFan(base, n) {
+    const MARGIN = 2;
+    const posLimit = bandDistance(base, 1) - MARGIN;
+    const negLimit = bandDistance(base, -1) - MARGIN;
+    let posMag = 0, negMag = 0;
+    let posOpen = posLimit >= HARMONY_STEP, negOpen = negLimit >= HARMONY_STEP;
+    const offsets = [0];
+    let preferPos = true;
+    for (let i = 1; i < n; i++) {
+      let side;
+      if (preferPos) side = posOpen ? "pos" : (negOpen ? "neg" : null);
+      else side = negOpen ? "neg" : (posOpen ? "pos" : null);
+      if (side === "pos") {
+        posMag += HARMONY_STEP;
+        offsets.push(posMag);
+        if (posMag + HARMONY_STEP > posLimit) posOpen = false;
+      } else if (side === "neg") {
+        negMag += HARMONY_STEP;
+        offsets.push(-negMag);
+        if (negMag + HARMONY_STEP > negLimit) negOpen = false;
+      } else {
+        // both sides exhausted -- only possible when base itself sits inside
+        // (or immediately beside) the purple band; keep growing the side with
+        // more room, unclamped, as a deterministic last resort.
+        if (posLimit >= negLimit) { posMag += HARMONY_STEP; offsets.push(posMag); }
+        else { negMag += HARMONY_STEP; offsets.push(-negMag); }
+      }
+      preferPos = !preferPos;
+    }
+    return offsets;
+  }
+
   function domainHue(mode, theme, domainId) {
     // Known ids use their curated DOMAINS order; unknown ids (real baked domains
     // not in the curated list) get a deterministic char-code hash so they still
@@ -38,9 +93,20 @@
     }
     if (mode === "ngu-sac") return NGU_SAC[i % NGU_SAC.length];
     if (mode === "lacquer") return LACQUER[i % LACQUER.length];
-    // harmonized: fan out from the theme accent's hue, golden-angle spread
-    const base = hexToHue((theme && theme.map && theme.map.roads && theme.map.roads.major) || "#c22");
-    return (base + i * 47) % 360;
+    // harmonized: anchor a fan of hues around the theme accent, food_and_drink
+    // (index 0) exactly on-accent, never landing in the absolute purple band
+    // (see task-11 brief) and never colliding with another domain's hue.
+    const accentHex = (theme && theme.map && theme.map.roads && theme.map.roads.major) || "#c22";
+    const cacheKey = mode + "|" + accentHex + "|" + domainId;
+    if (_cache.has(cacheKey)) return _cache.get(cacheKey);
+    const base = hexToHue(accentHex);
+    let fan = _fanCache.get(accentHex);
+    if (!fan) { fan = buildFan(base, Math.max(i + 1, DOMAINS.length)); _fanCache.set(accentHex, fan); }
+    if (i >= fan.length) { fan = buildFan(base, i + 1); _fanCache.set(accentHex, fan); }
+    const offset = fan[i];
+    const hue = (base + offset + 360) % 360;
+    _cache.set(cacheKey, hue);
+    return hue;
   }
   function shadeOf(hue, step, total) {
     // children walk lightness 62→38 (darker = "more"); single child → 50
@@ -49,6 +115,10 @@
     return hslToHex(hue, s, l);
   }
   function color(mode, theme, domainId, childIndex, childCount) {
+    if (domainId === "__uncategorized__") {
+      const base = hexToHue((theme && theme.map && theme.map.roads && theme.map.roads.major) || "#c22");
+      return hslToHex(base, 6, 62); // near-grey, faintly theme-tinted; applies in ALL modes
+    }
     const hue = domainHue(mode, theme, domainId);
     if (childIndex == null) return hslToHex(hue, 60, 48);   // the parent hue
     return shadeOf(hue, childIndex, childCount || 1);

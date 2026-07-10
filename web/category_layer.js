@@ -12,9 +12,38 @@ window.categoryLayer = (function () {
       map.addLayer({ id: LYR, type: "fill", source: SRC,
         paint: { "fill-color": "#cccccc", "fill-opacity": 0 } }, firstSymbolId(map));
   }
+  // Task 8: build a per-building-idx centroid lookup from the baked
+  // buildings FeatureCollection (store.buildingsFC()), keyed by
+  // String(feature.properties.idx) — the SAME idx keying used by
+  // buildingDominant/buildingCat. Centroid = a simple vertex-average of the
+  // feature's OUTER ring (good enough for a "is this building roughly
+  // inside the focus polygon" membership test, not a true area centroid).
+  // Runtime-derived (no bake step) — see task-8-report.md.
+  function centroidsById(store) {
+    const fc = store.buildingsFC();
+    const centroidById = {};
+    if (!fc || !fc.features) return centroidById;
+    for (const feature of fc.features) {
+      const g = feature.geometry;
+      if (!g || g.type !== "Polygon" || !g.coordinates || !g.coordinates[0]) continue;
+      const ring = g.coordinates[0];
+      let sx = 0, sy = 0, n = 0;
+      for (const [x, y] of ring) { sx += x; sy += y; n++; }
+      if (!n) continue;
+      const idx = feature.properties && feature.properties.idx;
+      if (idx === undefined || idx === null) continue;
+      centroidById[String(idx)] = [sx / n, sy / n];
+    }
+    return centroidById;
+  }
+
   // selection: array of {domainId, childId|null}; light a building if any of its
   // leaves matches a selected childId OR its domain matches a selected domain (childId null)
-  function update(map, store, selection, mode, theme) {
+  // clipPolygon (Task 8, optional 6th param): when truthy, only buildings
+  // whose centroid falls inside it contribute a fill stop — same clip
+  // semantics as bloom() below. Null/absent -> today's whole-district
+  // behavior, byte-identical (no centroid work, no filtering).
+  function update(map, store, selection, mode, theme, clipPolygon) {
     ensure(map, store);
     const cat = store.buildingCat();
     const tree = store.categoryTree();
@@ -30,9 +59,15 @@ window.categoryLayer = (function () {
           leafColor[c.id] = window.palettes.color(mode, theme, dom.id, i, dom.children.length));
       }
     }
+    const rings = clipPolygon ? window.__ringsOf(clipPolygon) : null;
+    const centroidById = rings ? centroidsById(store) : null;
     // MapLibre data-driven fill via a match expression on feature idx
     const stops = [];
     for (const [idx, leaves] of Object.entries(cat)) {
+      if (rings) {
+        const c = centroidById[String(idx)];
+        if (!c || !window.__pointInPolygon(c, rings)) continue;
+      }
       const hit = leaves.find(l => leafColor[l]);
       if (hit) stops.push([Number(idx), leafColor[hit]]);
     }
@@ -58,23 +93,39 @@ window.categoryLayer = (function () {
     return true;
   }
 
-  // bloom(map, store, dominantColorFn, theme): lights EVERY lit building by
-  // its dominant domain (store.current.buildingDominant: {idx: domainId}),
-  // via dominantColorFn(domain) -> hex, EXCLUDING big-venue idxs
+  // bloom(map, store, dominantColorFn, theme, clipPolygon): lights EVERY lit
+  // building by its dominant domain (store.current.buildingDominant: {idx:
+  // domainId}), via dominantColorFn(domain) -> hex, EXCLUDING big-venue idxs
   // (store.current.bigVenues) — those get their own marker layer instead
   // (see bigVenues() below). Runs on its own layer id so the ordinary
   // selection fill (update(), above) stays untouched/independent — bloom is
   // additive, not a rewrite of the selection path.
-  function bloom(map, store, dominantColorFn, theme) {
+  //
+  // clipPolygon (Task 8, optional 5th param): when truthy, only buildings
+  // whose centroid falls inside it (via window.__pointInPolygon against
+  // window.__ringsOf(clipPolygon), boundary_geom.js) contribute a bloom fill
+  // stop — this is how Bloom clips to the currently-focused ward/district/
+  // HCMC polygon instead of always lighting the whole baked district.
+  // Centroids are derived at RUNTIME from store.buildingsFC() (no bake
+  // step — see task-8-report.md). Null/absent clipPolygon -> today's
+  // whole-district behavior, byte-identical (no centroid work, no
+  // filtering).
+  function bloom(map, store, dominantColorFn, theme, clipPolygon) {
     ensure(map, store);
     if (!ensureBloomLayer(map)) return;
     const current = store.current;
     const buildingDominant = (current && current.buildingDominant) || {};
     const bigVenueIds = new Set(((current && current.bigVenues) || []).map(v => String(v.id)));
+    const rings = clipPolygon ? window.__ringsOf(clipPolygon) : null;
+    const centroidById = rings ? centroidsById(store) : null;
 
     const stops = [];
     for (const [idx, domain] of Object.entries(buildingDominant)) {
       if (bigVenueIds.has(String(idx))) continue; // excluded from bloom fill
+      if (rings) {
+        const c = centroidById[String(idx)];
+        if (!c || !window.__pointInPolygon(c, rings)) continue;
+      }
       const color = dominantColorFn(domain);
       if (color) stops.push([Number(idx), color]);
     }

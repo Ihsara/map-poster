@@ -8,7 +8,7 @@ html, body { margin: 0; height: 100%; font-family: "Be Vietnam Pro", system-ui, 
    everything INSIDE this mount). Docked as its own fixed sidebar on the
    right, over the full-bleed #map. Task 15 removed the legacy #controls
    panel this used to sit on top of — the shell is the only UI now. */
-#preact-panel-root { position: fixed; top: 0; right: 0; bottom: 0; width: 364px; overflow: hidden; z-index: 5; background: #1b1710; border-left: 1px solid #3a3226; }
+#preact-panel-root { position: fixed; top: 0; right: 0; bottom: 0; width: 560px; overflow: hidden; z-index: 5; background: #1b1710; border-left: 1px solid #3a3226; }
 /* Mobile: the shell (web-src/app.css) reflows its OWN grid into a bottom tab
    bar; here we just make #preact-panel-root cover the full viewport. */
 @media (max-width: 780px) {
