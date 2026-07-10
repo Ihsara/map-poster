@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>map-poster — make a map poster of anywhere</title>
+<meta name="description" content="Turn OpenStreetMap into a print-quality poster — pick an area, style it, export at 300 DPI.">
+<!-- The app lives under web/. This root page redirects there so the site root
+     (ihsara.github.io/map-poster/) never 404s. -->
+<link rel="canonical" href="web/poster.html">
+<meta http-equiv="refresh" content="0; url=web/poster.html">
+<script>location.replace("web/poster.html" + location.search + location.hash);</script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    background: #faf6ec; color: #514a3c;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #17140f; color: #c9c0ac; }
+    a { color: #d9a066; }
+  }
+  a { color: #7a4a2b; }
+</style>
+</head>
+<body>
+  <p>Redirecting to the <a href="web/poster.html">map poster maker</a>&hellip;</p>
+</body>
+</html>
