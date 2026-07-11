@@ -58,7 +58,9 @@ async function boot() {
   // fade is just a layer on top; it doesn't restrict the base map.
   await window.aoiStore.load();
   if (window.aoiStore.manifest.length) {
-    await window.aoiStore.select(window.aoiStore.manifest[0].id);
+    const boot = window.aoiStore.manifest.find((m) => m.id === "binh-thanh")
+      || window.aoiStore.manifest[0];
+    await window.aoiStore.select(boot.id);
   }
 
   const store = window.aoiStore;
