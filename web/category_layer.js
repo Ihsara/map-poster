@@ -7,7 +7,22 @@ window.categoryLayer = (function () {
   }
   function ensure(map, store) {
     const fc = store.buildingsFC(); if (!fc) return;
-    if (!map.getSource(SRC)) map.addSource(SRC, { type: "geojson", data: fc });
+    const src = map.getSource(SRC);
+    if (!src) {
+      map.addSource(SRC, { type: "geojson", data: fc });
+    } else if (src._aoiFC !== fc) {
+      // AOI switched: re-feed the source. Without this the FIRST AOI loaded owned
+      // the source forever — every later AOI rendered the first one's footprints
+      // while the paint expression was rebuilt from the NEW AOI's per-idx maps.
+      // Districts have similar building counts, so the idx values collided and lit
+      // up: picking Gò Vấp drew Bình Thạnh. Every other layer already re-datas on
+      // switch (ward_layer, boundary_mask, and the big-venue source below).
+      src.setData(fc);
+    }
+    // Track identity on the source so repeated ensure() calls for the same AOI
+    // don't re-upload an unchanged FeatureCollection.
+    const cur = map.getSource(SRC);
+    if (cur) cur._aoiFC = fc;
     if (!map.getLayer(LYR))
       map.addLayer({ id: LYR, type: "fill", source: SRC,
         paint: { "fill-color": "#cccccc", "fill-opacity": 0 } }, firstSymbolId(map));
