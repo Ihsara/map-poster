@@ -138,7 +138,10 @@
       fonts: state.fonts,
       titleSizeScale: state.titleSizeScale,
       titlePos,
-      scrim: true,
+      // The title glow is user-controlled (store: titleGlow) and OFF by
+      // default. This used to be a hardcoded `true`, so every exported poster
+      // carried the backing whether or not it was wanted.
+      scrim: !!state.titleGlow,
       attribution: (window.basemapProvider && window.basemapProvider.attribution &&
                     window.basemapProvider.attribution()) || "© OpenStreetMap contributors",
     });

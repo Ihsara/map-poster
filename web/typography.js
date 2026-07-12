@@ -97,33 +97,72 @@
     const titleScale = (typeof o.titleSizeScale === "number" && o.titleSizeScale > 0)
       ? o.titleSizeScale : 1;
 
+    // The title's own pixel size — the single scale the whole block hangs off.
+    const titlePx = Math.round(54 * dimScale * titleScale);
+
+    // Line spacing is measured in EM of the title, not in fractions of poster
+    // HEIGHT. The old code positioned these four lines at cityY + H*0.055 /
+    // H*0.09 / H*0.125 while the type scaled off the SHORT edge (dimScale) —
+    // two different scales, so they drifted: the same gaps that read as
+    // 2.02/3.30/4.58 em on a √2 portrait collapsed to 1.43/2.33/3.24 em on a
+    // square or landscape poster, and raising titleSizeScale grew the type
+    // without moving the lines at all (at 1.6x the title ran into the rule).
+    // These em values are exactly the ratios the A-series portrait layouts
+    // already produced, so every shipped A-size poster renders unchanged while
+    // other aspects and title sizes now track the type.
+    const RULE_EM = 2.02, COUNTRY_EM = 3.30, COORDS_EM = 4.58;
+    const ruleY = cityY + titlePx * RULE_EM;
+    const countryY = cityY + titlePx * COUNTRY_EM;
+    const coordsY = cityY + titlePx * COORDS_EM;
+
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = ink;
 
-    // Round 5: opt-in anti-collision scrim — a soft land-colored backing behind
-    // the text block so it lifts off a busy map. Default OFF (o.scrim falsy) =>
-    // byte-identical to before. Bounded to the text band, feathered L/R so it
-    // reads as part of the plate, not a UI card. (spec 2026-07-11 §C)
+    // Opt-in title GLOW — a soft land-colored bloom behind the text block so it
+    // lifts off a busy map. Default OFF (o.scrim falsy) => byte-identical to a
+    // poster drawn without it.
+    //
+    // This replaces the original Round-5 "scrim", which was a hard-edged
+    // fillRect band feathered on the left and right only: its top and bottom
+    // stayed as straight cut lines across the map, so it read as a UI card laid
+    // over the plate. A radial gradient has no edge to see — it is a glow of the
+    // land color, not a blur or a crop of the map underneath (blurring would
+    // destroy the map exactly where the poster's focal point sits).
+    //
+    // Sized in EM of the title, like the line spacing above, so the glow tracks
+    // the type across aspect ratios and titleSizeScale instead of drifting.
+    // Drawn on an ellipse (wider than tall) because the text block is wide and
+    // short; the alpha ramp is eased so the core reads solid and the falloff
+    // never bands.
     if (o.scrim) {
       const land = (o.theme && o.theme.map && o.theme.map.land) || "#f3ecdd";
-      const sx0 = W * 0.30, sx1 = W * 0.70;
-      const sy0 = cityY - H * 0.06, sy1 = cityY + H * 0.14;
-      const bandColor = hexToRgba(land, 0.35);
-      const edgeColor = hexToRgba(land, 0);
+      // The block runs from ~1em above the city baseline to the coords line.
+      const blockTop = cityY - titlePx * 1.0;
+      const blockBottom = cityY + titlePx * (COORDS_EM + 0.6);
+      const gcx = cx;
+      const gcy = (blockTop + blockBottom) / 2;
+      const ry = (blockBottom - blockTop) / 2 * 1.35; // breathe past the text
+      const rx = ry * 2.6;                            // wide, matching the block
       ctx.save();
-      const grad = ctx.createLinearGradient(sx0, 0, sx1, 0);
-      grad.addColorStop(0, edgeColor);
-      grad.addColorStop(0.5, bandColor);
-      grad.addColorStop(1, edgeColor);
+      // createRadialGradient is circular; scale the axes to get the ellipse.
+      ctx.translate(gcx, gcy);
+      ctx.scale(rx / ry, 1);
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+      grad.addColorStop(0.00, hexToRgba(land, 0.72));
+      grad.addColorStop(0.45, hexToRgba(land, 0.52));
+      grad.addColorStop(0.75, hexToRgba(land, 0.20));
+      grad.addColorStop(1.00, hexToRgba(land, 0));
       ctx.fillStyle = grad;
-      ctx.fillRect(sx0, sy0, sx1 - sx0, sy1 - sy0);
+      ctx.beginPath();
+      ctx.arc(0, 0, ry, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
 
     // city — bold display face, the anchor of the block
-    ctx.font = `700 ${Math.round(54 * dimScale * titleScale)}px "${displayFont}", ${genericDisplay}`;
+    ctx.font = `700 ${titlePx}px "${displayFont}", ${genericDisplay}`;
     ctx.globalAlpha = 1;
     ctx.fillText(o.city || "", cx, cityY);
 
@@ -133,20 +172,20 @@
     ctx.strokeStyle = ink;
     ctx.lineWidth = Math.max(1, Math.round(1.5 * dimScale));
     ctx.beginPath();
-    ctx.moveTo(W * 0.40, cityY + H * 0.055);
-    ctx.lineTo(W * 0.60, cityY + H * 0.055);
+    ctx.moveTo(W * 0.40, ruleY);
+    ctx.lineTo(W * 0.60, ruleY);
     ctx.stroke();
     ctx.restore();
 
     // country — light body face, uppercased, tracked out
     ctx.font = `400 ${Math.round(22 * dimScale)}px "${bodyFont}", ${genericBody}`;
     ctx.globalAlpha = 0.9;
-    ctx.fillText(String(o.country || "").toUpperCase(), cx, cityY + H * 0.09);
+    ctx.fillText(String(o.country || "").toUpperCase(), cx, countryY);
 
     // coordinates — VN-safe sans, muted
     ctx.font = `400 ${Math.round(18 * dimScale)}px "${monoFont}", ${genericMono}`;
     ctx.globalAlpha = 0.75;
-    ctx.fillText(formatCoordinates(center.lat, center.lon), cx, cityY + H * 0.125);
+    ctx.fillText(formatCoordinates(center.lat, center.lon), cx, coordsY);
 
     // corner credits: data source bottom-right, our app credit bottom-left.
     if (showCredits) {

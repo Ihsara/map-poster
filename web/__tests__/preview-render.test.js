@@ -37,18 +37,32 @@ describe("preview WYSIWYG render", () => {
     });
   });
 
-  it("renders drawPosterText with live subtitle + scrim when visible", () => {
+  function render(extra) {
     win.exportPreview.mount(map, { aspect: 21 / 29.7 });
     win.exportPreview.setSnapshot({
       city: "Phường Gia Định", country: "Quận Bình Thạnh",
       center: [106.7, 10.8], theme: { map: { land: "#eee" }, ui: { text: "#111" } },
       fonts: {}, titleSizeScale: 1, attribution: "© OSM", venuesPx: [],
+      ...extra,
     });
     win.exportPreview.setVisible(true);
-    const last = drawCalls[drawCalls.length - 1];
+    return drawCalls[drawCalls.length - 1];
+  }
+
+  it("renders drawPosterText with the live subtitle when visible", () => {
+    const last = render();
     expect(last).toBeTruthy();
     expect(last.city).toBe("Phường Gia Định");
     expect(last.country).toBe("Quận Bình Thạnh");
-    expect(last.scrim).toBe(true);
+  });
+
+  // The glow used to be hardcoded on. The preview must now mirror the store's
+  // titleGlow both ways, or the WYSIWYG promise breaks (preview lies to export).
+  it("title glow is OFF by default", () => {
+    expect(render().scrim).toBe(false);
+  });
+
+  it("title glow rides the snapshot through to drawPosterText when ON", () => {
+    expect(render({ titleGlow: true }).scrim).toBe(true);
   });
 });

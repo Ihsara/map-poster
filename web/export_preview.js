@@ -19,7 +19,7 @@
     aspect: 1, titlePos: { x: 0.5, y: 0.8 }, onMove: null, title: "Title", visible: false,
     dragged: false,
     city: "", country: "", center: [0, 0], theme: null, fonts: {}, titleSizeScale: 1,
-    attribution: "© OpenStreetMap contributors", venuesPx: [],
+    attribution: "© OpenStreetMap contributors", venuesPx: [], titleGlow: false,
   };
 
   function ensureEls(container) {
@@ -92,7 +92,7 @@
       center: { lat: (state.center || [])[1], lon: (state.center || [])[0] },
       city: state.city, country: state.country,
       fonts: state.fonts, titleSizeScale: state.titleSizeScale,
-      titlePos, scrim: true, attribution: state.attribution,
+      titlePos, scrim: state.titleGlow, attribution: state.attribution,
     });
     ctx.restore();
   }
@@ -125,6 +125,7 @@
       if (s.theme) state.theme = s.theme;
       if (s.fonts) state.fonts = s.fonts;
       if (typeof s.titleSizeScale === "number") state.titleSizeScale = s.titleSizeScale;
+      if (typeof s.titleGlow === "boolean") state.titleGlow = s.titleGlow;
       if (s.attribution) state.attribution = s.attribution;
       if (Array.isArray(s.venuesPx)) state.venuesPx = s.venuesPx;
       layoutEls();
