@@ -8,20 +8,25 @@ html, body { margin: 0; height: 100%; font-family: "Be Vietnam Pro", system-ui, 
    everything INSIDE this mount). Docked as its own fixed sidebar on the
    right, over the full-bleed #map. Task 15 removed the legacy #controls
    panel this used to sit on top of — the shell is the only UI now. */
-#preact-panel-root { position: fixed; top: 0; right: 0; bottom: 0; width: 560px; overflow: hidden; z-index: 5; background: #1b1710; border-left: 1px solid #3a3226; }
+/* UX6: transparent so the frosted panels inside (.summary-rail, #panel-column,
+   #export-bar — web-src/app.css) sample the live map behind this mount via
+   backdrop-filter, instead of blurring this div's own opaque fill. The three
+   panels paint their own (opaque-enough) backgrounds, so nothing here relies
+   on this root having a fill of its own. */
+#preact-panel-root { position: fixed; top: 0; right: 0; bottom: 0; width: 560px; overflow: hidden; z-index: 5; background: transparent; border-left: 1px solid #3a3226; }
 /* Mobile: the shell (web-src/app.css) reflows its OWN grid into a bottom tab
    bar; here we just make #preact-panel-root cover the full viewport. */
 @media (max-width: 780px) {
   #preact-panel-root { width: 100%; height: 100%; border-left: none; }
 }
 /* Task 7: WYSIWYG export preview overlay (web/export_preview.js) — a crop
-   frame matching the poster's aspect ratio over the live map, with the
-   outside dimmed via an oversized box-shadow, plus a draggable title chip. */
+   frame matching the poster's aspect ratio over the live map, plus a
+   draggable title chip. UX6 replaces the old border + oversized-box-shadow
+   dimming trick below with real dim panels (.xp-dim) and a proper frame
+   shadow — see the UX6 rules further down, which override border/box-shadow. */
 .xp-frame {
   position: absolute;
   pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
   z-index: 3;
 }
 .xp-canvas {
@@ -46,3 +51,30 @@ html, body { margin: 0; height: 100%; font-family: "Be Vietnam Pro", system-ui, 
   touch-action: none;
   user-select: none;
 }
+
+/* UX6 — the glass stage. The poster is a framed print on a dark light-table;
+   the live map stays full-bleed behind it (panning context is deliberately
+   preserved), but everything outside the crop is dimmed so the eye reads the
+   frame as an object. Dim PANELS, not a blur: blurring a live MapLibre canvas
+   every frame is expensive and would destroy the context we kept. */
+.xp-dim {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+  background: rgba(6, 14, 22, .62);
+  backdrop-filter: saturate(55%);
+}
+
+/* the crop frame itself — a hairline plus a real two-layer drop shadow, so it
+   reads as a physical print rather than a selection marquee. Hairline warmed
+   to the app's gold accent (#d8b869) — no blue anywhere in this app. */
+.xp-frame {
+  box-shadow:
+    0 24px 34px rgba(0, 0, 0, .5),
+    0 8px 14px rgba(0, 0, 0, .42),
+    0 0 0 1px rgba(216, 184, 105, .28);
+  border-radius: 3px;
+  z-index: 4;
+}
+.xp-canvas { z-index: 5; border-radius: 3px; }
+.xp-title  { z-index: 6; }

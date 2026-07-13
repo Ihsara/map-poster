@@ -2,8 +2,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
 // Load the IIFE (defines window.drawPosterText) against a fresh window.
+// typography.js now consumes window.titleMetrics (Task 2/UX6) for the
+// title block's geometry, so title_metrics.js must load first.
 async function loadTypography() {
   global.window = global.window || {};
+  await import("../title_metrics.js?scrim=" + Math.random());
   await import("../typography.js?scrim=" + Math.random());
   return global.window;
 }
@@ -23,6 +26,9 @@ function fakeCtx() {
       ops.push({ name: "createRadialGradient", a });
       return { addColorStop(off, col) { ops.push({ name: "stop", a: [off, col] }); } };
     },
+    // Stub glyph metrics for window.titleMetrics' fit calc — deterministic,
+    // proportional to string length like the smoke test's stub.
+    measureText: (s) => ({ width: String(s).length * 20 }),
     set fillStyle(v) { ops.push({ name: "fillStyle", a: [v] }); },
     get fillStyle() { return "#000"; },
     set strokeStyle(v) {}, set font(v) {}, set globalAlpha(v) {},

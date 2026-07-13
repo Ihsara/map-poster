@@ -48,7 +48,16 @@
       layoutEls();
       if (state.onMove) state.onMove(nx, ny);
     });
-    els = { frame, chip, canvas: cvs };
+    // Four panels that dim everything OUTSIDE the crop, so the poster reads as
+    // a lit object on a dark stage rather than a marquee over a map.
+    const dims = ["top", "bottom", "left", "right"].map((side) => {
+      const d = document.createElement("div");
+      d.className = "xp-dim xp-dim--" + side;
+      d.style.display = "none";
+      container.appendChild(d);
+      return d;
+    });
+    els = { frame, chip, canvas: cvs, dims };
     return els;
   }
 
@@ -62,6 +71,23 @@
       left: (b.x + state.titlePos.x * b.w) + "px",
       top: (b.y + state.titlePos.y * b.h) + "px",
     });
+    // position the four dim panels around the frame
+    if (els.dims) {
+      const cw = rect.width, ch = rect.height;
+      const S = {
+        top:    { left: 0, top: 0, width: cw, height: b.y },
+        bottom: { left: 0, top: b.y + b.h, width: cw, height: Math.max(0, ch - b.y - b.h) },
+        left:   { left: 0, top: b.y, width: b.x, height: b.h },
+        right:  { left: b.x + b.w, top: b.y, width: Math.max(0, cw - b.x - b.w), height: b.h },
+      };
+      ["top", "bottom", "left", "right"].forEach((side, i) => {
+        const s = S[side];
+        Object.assign(els.dims[i].style, {
+          left: s.left + "px", top: s.top + "px",
+          width: s.width + "px", height: s.height + "px",
+        });
+      });
+    }
     renderPreview();
   }
 
@@ -71,7 +97,12 @@
     const cv = window.map.getCanvas();
     const rect = cv.getBoundingClientRect();
     const b = frameBounds({ w: rect.width, h: rect.height }, state.aspect);
-    const dpr = window.devicePixelRatio || 1;
+    // UX6: render the preview at 2x the device ratio and let CSS downscale it.
+    // The poster text is drawn on canvas (NOT DOM) so that preview and export
+    // share ONE drawPosterText() — a font that looks right here IS right in the
+    // PNG. The cost of that choice is rasterization softness; supersampling is
+    // the fix. Capped at 3 so a 3x-DPR phone doesn't allocate a huge buffer.
+    const dpr = Math.min(3, (window.devicePixelRatio || 1) * 2);
     const cvs = els.canvas;
     cvs.style.display = "block";
     Object.assign(cvs.style, { position: "absolute", left: b.x + "px", top: b.y + "px",
@@ -136,6 +167,7 @@
         els.frame.style.display = on ? "block" : "none";
         els.chip.style.display = on ? "block" : "none";
         els.canvas.style.display = on ? "block" : "none";
+        if (els.dims) els.dims.forEach((d) => { d.style.display = on ? "block" : "none"; });
       }
       if (on) renderPreview();
     } };

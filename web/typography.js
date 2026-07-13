@@ -4,8 +4,6 @@
 // (country), Be Vietnam Pro (VN-safe coords + attribution) — overridable
 // per-call via o.fonts (Task 7, see drawPosterText below).
 (function () {
-  const REF = 1400; // reference short-edge for per-dimension scaling
-
   // Parse a #rgb / #rrggbb land hex into an rgba() string at the given alpha.
   function hexToRgba(hex, alpha) {
     let h = String(hex || "").trim().replace(/^#/, "");
@@ -56,25 +54,29 @@
   // now reads o.fonts.{display,body,mono} when present, FALLING BACK to the
   // original hardcoded literals when o.fonts is absent — so any caller that
   // doesn't pass fonts (e.g. an older/simpler snapshot) renders exactly as
-  // before. This is the only sanctioned edit to this frozen file; only the
-  // font-family strings + their CSS generic fallback keywords (and the
-  // title-size multiplier below) are parameterized — sizes, positions,
-  // colors, and the fade logic are untouched.
+  // before. Font-family strings + their CSS generic fallback keywords are
+  // parameterized — colors and the fade logic are untouched.
   //
   // Fix-pass: the display role's generic fallback was already
   // parameterized (genericDisplay); body and mono now are too
   // (genericBody/genericMono), all falling back to their historical
   // literal ("serif"/"sans-serif") when absent — see below.
+  //
+  // Task 2 (UX6): the title block's GEOMETRY (sizes, gaps, rule width) used
+  // to be hardcoded here as em-of-title constants reverse-derived from
+  // legacy A4 output. It now comes from window.titleMetrics
+  // (generated from web-src/title-metrics.js, byte-identity tested), which
+  // measures the REAL glyph widths of the city name so long Vietnamese ward
+  // names auto-fit instead of overrunning the poster width. This file stays
+  // the frozen plain-<script> renderer; title_metrics.js must be loaded
+  // before this one (see poster.html) or drawPosterText throws loudly
+  // rather than silently drawing with stale geometry.
   function drawPosterText(ctx, o) {
     const W = o.width, H = o.height;
     const theme = o.theme || {};
     const ink = (theme.ui && theme.ui.text) || "#111";
     const center = o.center || {};
     const showCredits = o.showCredits !== false;
-    const dimScale = Math.max(0.45, Math.min(W, H) / REF);
-    const tp = o.titlePos && typeof o.titlePos.x === "number" ? o.titlePos : null;
-    const cx = tp ? tp.x * W : W / 2;
-    const cityY = tp ? tp.y * H : H * 0.80;
     const fonts = o.fonts || {};
     const displayFont = fonts.display || "Alegreya";
     const bodyFont = fonts.body || "Lora";
@@ -94,26 +96,26 @@
     // hardcoded "serif" fallback until this was parameterized.
     const genericBody = fonts.genericBody || "serif";
     const genericMono = fonts.genericMono || "sans-serif";
-    const titleScale = (typeof o.titleSizeScale === "number" && o.titleSizeScale > 0)
-      ? o.titleSizeScale : 1;
 
-    // The title's own pixel size — the single scale the whole block hangs off.
-    const titlePx = Math.round(54 * dimScale * titleScale);
-
-    // Line spacing is measured in EM of the title, not in fractions of poster
-    // HEIGHT. The old code positioned these four lines at cityY + H*0.055 /
-    // H*0.09 / H*0.125 while the type scaled off the SHORT edge (dimScale) —
-    // two different scales, so they drifted: the same gaps that read as
-    // 2.02/3.30/4.58 em on a √2 portrait collapsed to 1.43/2.33/3.24 em on a
-    // square or landscape poster, and raising titleSizeScale grew the type
-    // without moving the lines at all (at 1.6x the title ran into the rule).
-    // These em values are exactly the ratios the A-series portrait layouts
-    // already produced, so every shipped A-size poster renders unchanged while
-    // other aspects and title sizes now track the type.
-    const RULE_EM = 2.02, COUNTRY_EM = 3.30, COORDS_EM = 4.58;
-    const ruleY = cityY + titlePx * RULE_EM;
-    const countryY = cityY + titlePx * COUNTRY_EM;
-    const coordsY = cityY + titlePx * COORDS_EM;
+    // Geometry comes from window.titleMetrics (generated from
+    // web-src/title-metrics.js). See that file for why the old title-relative
+    // em constants were wrong. `measure` binds the REAL font so the long-name
+    // fit uses true glyph widths, not a character count.
+    const measure = (text, px) => {
+      const prev = ctx.font;
+      ctx.font = `700 ${px}px "${displayFont}", ${genericDisplay}`;
+      const w = ctx.measureText(String(text)).width;
+      ctx.font = prev;
+      return w;
+    };
+    const M = window.titleMetrics.titleBlockMetrics({
+      W, H, city: o.city, titleSizeScale: o.titleSizeScale,
+      titlePos: o.titlePos, measure,
+    });
+    const dimScale = M.dimScale;
+    const cx = M.cx, cityY = M.cityY, ruleY = M.ruleY;
+    const countryY = M.countryY, coordsY = M.coordsY;
+    const titlePx = Math.round(M.titlePx);
 
     ctx.save();
     ctx.textAlign = "center";
@@ -140,7 +142,7 @@
       const land = (o.theme && o.theme.map && o.theme.map.land) || "#f3ecdd";
       // The block runs from ~1em above the city baseline to the coords line.
       const blockTop = cityY - titlePx * 1.0;
-      const blockBottom = cityY + titlePx * (COORDS_EM + 0.6);
+      const blockBottom = coordsY + M.coordsPx * 0.6;
       const gcx = cx;
       const gcy = (blockTop + blockBottom) / 2;
       const ry = (blockBottom - blockTop) / 2 * 1.35; // breathe past the text
@@ -166,24 +168,26 @@
     ctx.globalAlpha = 1;
     ctx.fillText(o.city || "", cx, cityY);
 
-    // divider rule spanning the middle fifth (40%→60% of width)
+    // divider rule — spans the TITLE's width (floored), centred on it
     ctx.save();
     ctx.globalAlpha = 0.6;
     ctx.strokeStyle = ink;
     ctx.lineWidth = Math.max(1, Math.round(1.5 * dimScale));
     ctx.beginPath();
-    ctx.moveTo(W * 0.40, ruleY);
-    ctx.lineTo(W * 0.60, ruleY);
+    ctx.moveTo(M.ruleX0, ruleY);
+    ctx.lineTo(M.ruleX1, ruleY);
     ctx.stroke();
     ctx.restore();
 
-    // country — light body face, uppercased, tracked out
-    ctx.font = `400 ${Math.round(22 * dimScale)}px "${bodyFont}", ${genericBody}`;
+    // country — light body face, uppercased, optically tracked (never tracked
+    // when it carries VN combining marks — that would sever a base letter
+    // from its diacritic).
+    ctx.font = `400 ${Math.round(M.countryPx)}px "${bodyFont}", ${genericBody}`;
     ctx.globalAlpha = 0.9;
-    ctx.fillText(String(o.country || "").toUpperCase(), cx, countryY);
+    ctx.fillText(window.titleMetrics.trackCountry(String(o.country || "").toUpperCase()), cx, countryY);
 
     // coordinates — VN-safe sans, muted
-    ctx.font = `400 ${Math.round(18 * dimScale)}px "${monoFont}", ${genericMono}`;
+    ctx.font = `400 ${Math.round(M.coordsPx)}px "${monoFont}", ${genericMono}`;
     ctx.globalAlpha = 0.75;
     ctx.fillText(formatCoordinates(center.lat, center.lon), cx, coordsY);
 
