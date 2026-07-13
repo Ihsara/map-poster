@@ -73,7 +73,6 @@ function fakeStore(initial) {
     select(aoi) { current = aoi; },
     get current() { return current; },
     buildingsFC: () => current && current.buildings,
-    buildingCat: () => ({}),
     categoryTree: () => [],
   };
 }
