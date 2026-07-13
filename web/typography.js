@@ -122,9 +122,13 @@
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = ink;
 
-    // Opt-in title GLOW — a soft land-colored bloom behind the text block so it
-    // lifts off a busy map. Default OFF (o.scrim falsy) => byte-identical to a
-    // poster drawn without it.
+    // Title GLOW — a soft land-colored bloom behind the text block so it lifts
+    // off a busy map.
+    //
+    // UX7: the band is ON by default. It was opt-in, so every poster shipped
+    // with the title sitting raw on the linework. A plate gives its title a
+    // cleared band (TerraInk keeps the bottom ~15% clear); `scrim: false`
+    // still opts out for a deliberately bare poster.
     //
     // This replaces the original Round-5 "scrim", which was a hard-edged
     // fillRect band feathered on the left and right only: its top and bottom
@@ -138,7 +142,8 @@
     // Drawn on an ellipse (wider than tall) because the text block is wide and
     // short; the alpha ramp is eased so the core reads solid and the falloff
     // never bands.
-    if (o.scrim) {
+    const wantBand = o.scrim !== false;
+    if (wantBand) {
       const land = (o.theme && o.theme.map && o.theme.map.land) || "#f3ecdd";
       // The block runs from ~1em above the city baseline to the coords line.
       const blockTop = cityY - titlePx * 1.0;

@@ -33,7 +33,11 @@ function fakeCtx() {
     moveTo(x, y) { lines.push({ x, y }); },
     lineTo(x, y) { lines.push({ x, y }); },
     fillRect() {}, createLinearGradient() { return { addColorStop() {} }; },
+    // UX7: the title band draws by DEFAULT now (was opt-in), so this fixture's
+    // drawPosterText calls reach the glow's translate/scale/arc/fill — stub
+    // them so this file keeps testing line-spacing geometry, not the glow.
     createRadialGradient() { return { addColorStop() {} }; },
+    translate() {}, scale() {}, arc() {}, fill() {},
     // Stub glyph metrics for window.titleMetrics' fit calc — deterministic,
     // proportional to string length like the smoke test's stub.
     measureText(s) { return { width: String(s).length * 20 }; },

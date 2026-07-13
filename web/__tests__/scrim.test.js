@@ -45,14 +45,16 @@ const O = {
 
 // The `scrim` flag now draws a soft land-color GLOW (radial gradient), not the
 // original hard-edged fillRect band — that band's straight top/bottom cut lines
-// read as a UI card pasted over the plate. It stays OFF by default.
+// read as a UI card pasted over the plate. UX7 flipped it from opt-in to
+// opt-out: the glow now draws by DEFAULT (see the "opt-out default" describe
+// block below); `scrim: false` still suppresses it entirely.
 describe("drawPosterText title glow (o.scrim)", () => {
   let win;
   beforeEach(async () => { win = await loadTypography(); });
 
-  it("OFF by default: nothing is painted behind the text", () => {
+  it("scrim:false: nothing is painted behind the text", () => {
     const ctx = fakeCtx();
-    win.drawPosterText(ctx, { ...O });
+    win.drawPosterText(ctx, { ...O, scrim: false });
     const firstText = ctx.ops.findIndex((o) => o.name === "fillText");
     const before = ctx.ops.slice(0, firstText);
     expect(before.filter((o) => o.name === "fillRect")).toHaveLength(0);
@@ -94,5 +96,65 @@ describe("drawPosterText title glow (o.scrim)", () => {
     };
     expect(radius(1.6)).toBeGreaterThan(radius(1));
     expect(radius(0.6)).toBeLessThan(radius(1));
+  });
+
+  // Coverage gap closed: the tests above only prove a gradient is painted with
+  // the right colors/radius — they never check WHERE. A bug that mis-centred
+  // the bloom (wrong corner of the poster) would pass all of them, and the
+  // band draws on EVERY poster now (UX7 opt-out default), so its position is
+  // load-bearing. This derives the expected centre the SAME way typography.js
+  // does — from window.titleMetrics.titleBlockMetrics, the block's real
+  // geometry — rather than a hardcoded/reverse-engineered number.
+  it("ON: the glow is centred on the title block (cx, midpoint of block top/bottom), not the origin/a corner", () => {
+    const ctx = fakeCtx();
+    win.drawPosterText(ctx, { ...O, scrim: true });
+
+    // Recompute the same measure() typography.js binds — deterministic stub
+    // matching fakeCtx().measureText (length * 20), independent of font.
+    const measure = (text) => String(text).length * 20;
+    const M = win.titleMetrics.titleBlockMetrics({
+      W: O.width, H: O.height, city: O.city,
+      titleSizeScale: undefined, titlePos: undefined, measure,
+    });
+    const titlePx = Math.round(M.titlePx);
+    const blockTop = M.cityY - titlePx * 1.0;
+    const blockBottom = M.coordsY + M.coordsPx * 0.6;
+    const expectedGcx = M.cx;
+    const expectedGcy = (blockTop + blockBottom) / 2;
+
+    const translate = ctx.ops.find((o) => o.name === "translate");
+    expect(translate).toBeTruthy();
+    const [gcx, gcy] = translate.a;
+    expect(gcx).toBeCloseTo(expectedGcx, 6);
+    expect(gcy).toBeCloseTo(expectedGcy, 6);
+
+    // Sanity: the centre must be a real interior point of the 1000x1414
+    // canvas, not the origin (0,0) or a corner a mis-centring bug could park
+    // it at.
+    expect(gcx).toBeGreaterThan(O.width * 0.25);
+    expect(gcx).toBeLessThan(O.width * 0.75);
+    expect(gcy).toBeGreaterThan(0);
+    expect(gcy).toBeLessThan(O.height);
+  });
+});
+
+// UX7: the band was opt-in (`if (o.scrim)`), so every poster shipped with its
+// title sitting raw on the linework. It is now opt-OUT — the glow draws by
+// DEFAULT, and only an explicit `scrim: false` suppresses it.
+describe("title band (UX7 — opt-out default)", () => {
+  let win;
+  beforeEach(async () => { win = await loadTypography(); });
+
+  it("draws the land-colored bloom by DEFAULT — the title needs air", () => {
+    const ctx = fakeCtx();
+    // NOTE: no `scrim` key at all in O — the default must still bloom.
+    win.drawPosterText(ctx, { ...O });
+    expect(ctx.ops.some((o) => o.name === "createRadialGradient")).toBe(true);
+  });
+
+  it("scrim:false still opts OUT", () => {
+    const ctx = fakeCtx();
+    win.drawPosterText(ctx, { ...O, scrim: false });
+    expect(ctx.ops.some((o) => o.name === "createRadialGradient")).toBe(false);
   });
 });

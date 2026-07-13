@@ -7,9 +7,19 @@ window.aoiStore = (function () {
   // web/aoi/<ref>.json and fetched at most once per session. Switching AOIs inside
   // the same district therefore costs no extra geometry fetch.
   const sharedGeomCache = new Map();
+  // Same idea, for the AOI payload itself — see select() below.
+  const aoiPayloadCache = new Map();
 
   async function load() {
-    manifest = await fetch("aoi/manifest.json").then(r => r.json()).catch(() => []);
+    // ?v= is REQUIRED here, and it is easy to miss: manifest.json is the only
+    // shipped asset that is NOT referenced from poster.html, so poster.html's
+    // cache-bust cannot cover it. UX7 rewrote districtName on all 688 rows and
+    // added provinceName. Without this bust, a RETURNING visitor gets the new
+    // code against a cached OLD manifest — every row self-echoes, provinceName
+    // is undefined, and the subtitle falls all the way back to "Việt Nam", the
+    // exact bug this release removes. A cold-browser live gate cannot see it.
+    // Bump this whenever the manifest is re-baked.
+    manifest = await fetch("aoi/manifest.json?v=20260713ux7").then(r => r.json()).catch(() => []);
   }
 
   async function sharedFocusUnit(ref) {
@@ -89,8 +99,28 @@ window.aoiStore = (function () {
     return obj;
   }
 
+  // The page boots TWO apps against this one store — the frozen renderer
+  // (poster.js) and the Preact panel (main.jsx) — and both select the boot AOI.
+  // Measured live: they each fetched aoi/binh-thanh.json, 225 KB, twice. Cache
+  // the PAYLOAD promise per id (like sharedFocusUnit above) so concurrent
+  // callers share one in-flight request. Only the raw payload is cached: the
+  // hydrate/resolve steps below mutate their object and assign module state, so
+  // they must still run per call.
   async function select(id) {
-    current = await fetch(`aoi/${id}.json`).then(r => r.json());
+    if (!aoiPayloadCache.has(id)) {
+      // Evict on failure, or a single transient blip would poison this AOI for
+      // the page's lifetime: the rejected promise would stay cached and every
+      // later select(id) would re-reject with no retry path. (load() and
+      // sharedFocusUnit() above both guard their fetches; this must too.)
+      aoiPayloadCache.set(
+        id,
+        fetch(`aoi/${id}.json`).then(r => r.json()).catch(err => {
+          aoiPayloadCache.delete(id);
+          throw err;
+        })
+      );
+    }
+    current = await aoiPayloadCache.get(id);
     current = await hydrateSharedFocusUnits(current);
     current = resolveBoundaryAliasList(current);
     boundaryKind = "district"; boundaryName = null;
@@ -109,7 +139,24 @@ window.aoiStore = (function () {
   }
 
   const buildingsFC = () => current && current.buildings;
-  const categoryTree = () => (current && current.categoryTree) || [];
+  // Every consumer of a category colour reads the tree through here — the map
+  // layer (category_layer.js) and the picker's swatches (PlacesPicker.jsx) —
+  // so this is where the palette gets told the REAL domain order.
+  //
+  // palettes.js carries a hardcoded 16-name DOMAINS table that predates the
+  // Overture taxonomy this data now uses: only 3 of the 13 live domain ids are
+  // in it, so the rest fell through to a hash and COLLIDED — 13 categories
+  // rendered in 7 colours, food_and_drink and cultural_and_historic identical.
+  // Registering it here (rather than inside the map layer's update()) means the
+  // map and the picker's swatches cannot disagree, and it holds even when the
+  // categories layer is switched off.
+  const categoryTree = () => {
+    const tree = (current && current.categoryTree) || [];
+    if (window.palettes && window.palettes.setDomainOrder) {
+      window.palettes.setDomainOrder(tree.map(d => d.id));
+    }
+    return tree;
+  };
 
   return {
     load, select, selectBoundary, boundaryPolygon, buildingsFC, categoryTree,

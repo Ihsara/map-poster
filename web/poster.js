@@ -29,8 +29,8 @@ const BINH_THANH = { center: [106.7162, 10.8121], zoom: 12.4, city: "Bình Thạ
 
 async function boot() {
   const [themes, layouts] = await Promise.all([
-    fetch("../data/themes.json").then(r => r.json()),
-    fetch("../data/layouts.json").then(r => r.json()),
+    window.bootFetch("../data/themes.json"),
+    window.bootFetch("../data/layouts.json"),
   ]);
 
   const state = window.posterState = {
@@ -64,7 +64,13 @@ async function boot() {
   }
 
   const store = window.aoiStore;
-  state.paletteMode = "harmonized";
+  // Must match the Preact store's default (web-src/store.js: paletteMode).
+  // Harmless today only because selection is empty and category_layer.update()
+  // short-circuits before reading the mode — but two layers holding independent
+  // copies of the same derived input, with only one updated, is precisely the
+  // shape of three of this release's bugs. Give the boot paint a non-empty
+  // selection and it would paint a rainbow while the panel said "poster".
+  state.paletteMode = "poster";
   state.selection = [];
 
   map.on("load", () => {

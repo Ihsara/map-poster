@@ -114,7 +114,59 @@
     const s = 62;
     return hslToHex(hue, s, l);
   }
+  // "poster": a PLATE palette, not a dashboard palette.
+  // Cartographic rule — hue separates categories; LIGHTNESS encodes rank
+  // (Axis Maps, "Using colors on maps"). A wall poster wants one ground hue +
+  // one ink hue + at most one accent, with difference carried in VALUE. The
+  // other modes fan hues around the wheel at 60% sat, which is correct for a
+  // chart and reads as confetti on a plate — it was drowning the title.
+  function posterColor(theme, domainId, childIndex, childCount) {
+    if (domainId === "__uncategorized__") {
+      const base = hexToHue((theme && theme.map && theme.map.roads && theme.map.roads.major) || "#c22");
+      return hslToHex(base, 6, 62);
+    }
+    const accentHex = (theme && theme.map && theme.map.roads && theme.map.roads.major) || "#c22";
+    const base = hexToHue(accentHex);
+
+    // Rank the domain. Prefer the LIVE domain order the renderer registered
+    // (setDomainOrder below); fall back to the curated DOMAINS table, then to a
+    // deterministic hash.
+    //
+    // Why the registry exists: DOMAINS is a hardcoded 16-name list, but the
+    // baked data now uses the Overture taxonomy, and only THREE of the 13 live
+    // domain ids appear in it. The other ten fell through to the hash, which
+    // collided them onto shared slots — 13 categories rendered in 7 colours, so
+    // food_and_drink and cultural_and_historic came out IDENTICAL. This whole
+    // mode's promise is that categories separate by VALUE, and half of them did
+    // not. (The stale table hurts every mode: harmonized collides 2 of 13 and
+    // ngu-sac/lacquer collapse to 4-5 colours. Only poster mode is repaired
+    // here; the others keep their existing behavior.)
+    let i = _domainOrder.indexOf(domainId);
+    let doms = _domainOrder.length;
+    if (i < 0) {
+      i = DOMAINS.indexOf(domainId);
+      doms = DOMAINS.length || 1;
+    }
+    if (i < 0) {
+      // Unknown id (neither registered nor curated, e.g. a test fixture) —
+      // deterministic hash into its own slot, so it still separates by value
+      // instead of collapsing every unknown id onto index 0.
+      let h = 0;
+      const s = String(domainId || "");
+      for (let k = 0; k < s.length; k++) h = (h * 31 + s.charCodeAt(k)) % 97;
+      i = h % doms;
+    }
+    // stay inside a +/-18deg arc of the theme's ink: analogous, never opposite
+    const hue = (base + (((i / Math.max(doms - 1, 1)) - 0.5) * 36) + 360) % 360;
+    // rank by VALUE: walk lightness 30 -> 66 across domains, then within children
+    const l0 = 30 + (36 * i) / Math.max(doms - 1, 1);
+    const l = childIndex == null || childCount <= 1
+      ? l0
+      : l0 + ((childIndex / Math.max(childCount - 1, 1)) - 0.5) * 10;
+    return hslToHex(hue, 34, Math.max(22, Math.min(72, l)));
+  }
   function color(mode, theme, domainId, childIndex, childCount) {
+    if (mode === "poster") return posterColor(theme, domainId, childIndex, childCount);
     if (domainId === "__uncategorized__") {
       const base = hexToHue((theme && theme.map && theme.map.roads && theme.map.roads.major) || "#c22");
       return hslToHex(base, 6, 62); // near-grey, faintly theme-tinted; applies in ALL modes
@@ -123,6 +175,20 @@
     if (childIndex == null) return hslToHex(hue, 60, 48);   // the parent hue
     return shadeOf(hue, childIndex, childCount || 1);
   }
-  window.palettes = { modes: ["harmonized","ngu-sac","lacquer"], color, shadeOf,
-                      _domainHue: domainHue };
+  // The live domain order, registered by whoever actually walks the category
+  // tree (category_layer.js). Empty until then, so every existing caller and
+  // every test keeps its current behavior.
+  let _domainOrder = [];
+  function setDomainOrder(ids) {
+    const next = Array.isArray(ids) ? ids : [];
+    // Called on every categoryTree() read, i.e. every render. Bail unless the
+    // order actually changed, or we would clear the memo cache constantly.
+    if (next.length === _domainOrder.length &&
+        next.every((id, k) => id === _domainOrder[k])) return;
+    _domainOrder = next.slice();
+    _cache.clear();
+  }
+
+  window.palettes = { modes: ["poster","harmonized","ngu-sac","lacquer"], color, shadeOf,
+                      setDomainOrder, _domainHue: domainHue };
 })();
