@@ -5,9 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>map-poster — make a map poster of anywhere</title>
   <link rel="stylesheet" href="vendor/maplibre-gl.css" />
-  <link rel="stylesheet" href="poster.css?v=20260713ux6" />
-  <link rel="stylesheet" href="vendor/fonts/fonts.css?v=20260713ux6" />
-  <link rel="stylesheet" href="assets/main.css?v=20260713ux7" />
+  <link rel="stylesheet" href="poster.css?v=20260714trka" />
+  <!-- Track fonts (2026-07-14): fonts.css MUST be re-busted whenever a
+       @font-face src changes, not just when a rule is added. 7 vendored
+       binaries (alegreya-700, lora-400, bvp-400/600/700, ebgaramond-400/700)
+       were Vietnamese-subset SHARDS with no basic Latin — same filenames,
+       new bytes, so bumping fonts.css's own ?v= here is what makes a
+       returning visitor even re-fetch the CSS (whose per-file ?v= then
+       busts the woff2 binaries themselves). A cold-browser test is
+       structurally blind to this. It has bitten this project before. -->
+  <link rel="stylesheet" href="vendor/fonts/fonts.css?v=20260714trkc" />
+  <!-- rebuilt: carries the B3 subtitle-face picker's styles -->
+  <link rel="stylesheet" href="assets/main.css?v=20260714trkb" />
 </head>
 <body>
   <main id="app">
@@ -24,7 +33,7 @@
   <script src="vendor/turf.min.js?v=20260713ux6"></script>
   <script src="boundary_mask.js?v=20260713ux6"></script>
   <script src="ward_layer.js?v=20260713ux6"></script>
-  <script src="aoi.js?v=20260713ux7"></script>
+  <script src="aoi.js?v=20260714trkh"></script>
   <script src="palettes.js?v=20260713ux7"></script>
   <script type="module" src="boundary_geom.js?v=20260713ux6"></script>
   <script src="category_layer.js?v=20260713ux6"></script>
@@ -33,6 +42,9 @@
   <script type="module" src="aoi_hit.js?v=20260713ux6"></script>
   <script src="boot_cache.js?v=20260713ux7"></script>
   <script src="poster.js?v=20260713ux7"></script>
-  <script type="module" src="assets/main.js?v=20260713ux7"></script>
+  <!-- rebuilt: carries the B3 subtitle-face control + the Barber/CDA-Text
+       catalog entries. The bundle IS committed — a web-src/ change without a
+       rebuild + a bump here ships the feature INVISIBLE. -->
+  <script type="module" src="assets/main.js?v=20260714trkb"></script>
 </body>
 </html>

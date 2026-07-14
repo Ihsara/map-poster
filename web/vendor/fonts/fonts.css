@@ -1,17 +1,41 @@
+/* --- Track B: Alegreya 400 was THE MISSING FILE. typography.js draws the
+   country/subtitle line at weight 400, but only alegreya-700 was ever
+   vendored — so the default Alegreya · Lora pairing's subtitle had no real
+   400 cut and the browser synthesized one. That read as a drab "design
+   decision"; it was a file we never downloaded. This is a REAL static 400
+   (usWeightClass 400, name "Alegreya Regular"), spliced from the Google
+   Fonts css2 latin + vietnamese subset shards per the Manrope/Plex gotcha
+   noted below. Render-gated against the VN stress string at 400 AND 700.
+   See licences/PROVENANCE.md "Track B addendum". --- */
+/* Track fonts (2026-07-14): alegreya-700, lora-400, bvp-400/600/700, and
+   ebgaramond-400/700 were VIETNAMESE-SUBSET SHARDS ONLY — Google's css2 API
+   serves latin / latin-ext / vietnamese as separate files with disjoint
+   cmaps (the same gotcha already documented below for Manrope/Plex/Alegreya
+   400), and whoever vendored these 7 downloaded only the vietnamese shard.
+   Measured, not assumed: alegreya-700 had 116 glyphs, NO basic Latin (no
+   a/b/n/h, no digits) — the browser fell back per-glyph to the system serif
+   mid-word. All 7 have been re-spliced (latin + latin-ext + vietnamese,
+   cmap/glyf/hmtx merge) into single self-hosted files carrying both ranges,
+   the exact recipe already used for Manrope/Plex Serif/Alegreya-400. Real
+   weights preserved (usWeightClass checked in the binary — no faux-bold).
+   `?v=` added to each `src:url()` below (cache-busting these binaries
+   specifically, since the same filenames are reused) — see PROVENANCE.md. */
+@font-face { font-family:"Alegreya"; font-weight:400; font-display:swap;
+  src:url("alegreya-400.woff2") format("woff2"); }
 @font-face { font-family:"Alegreya"; font-weight:700; font-display:swap;
-  src:url("alegreya-700.woff2") format("woff2"); }
+  src:url("alegreya-700.woff2?v=20260714trkc") format("woff2"); }
 @font-face { font-family:"Lora"; font-weight:400; font-display:swap;
-  src:url("lora-400.woff2") format("woff2"); }
+  src:url("lora-400.woff2?v=20260714trkc") format("woff2"); }
 @font-face { font-family:"Be Vietnam Pro"; font-weight:400; font-display:swap;
-  src:url("bvp-400.woff2") format("woff2"); }
+  src:url("bvp-400.woff2?v=20260714trkc") format("woff2"); }
 @font-face { font-family:"Be Vietnam Pro"; font-weight:600; font-display:swap;
-  src:url("bvp-600.woff2") format("woff2"); }
+  src:url("bvp-600.woff2?v=20260714trkc") format("woff2"); }
 @font-face { font-family:"Be Vietnam Pro"; font-weight:700; font-display:swap;
-  src:url("bvp-700.woff2") format("woff2"); }
+  src:url("bvp-700.woff2?v=20260714trkc") format("woff2"); }
 @font-face { font-family:"EB Garamond"; font-weight:400; font-display:swap;
-  src:url("ebgaramond-400.woff2") format("woff2"); }
+  src:url("ebgaramond-400.woff2?v=20260714trkc") format("woff2"); }
 @font-face { font-family:"EB Garamond"; font-weight:700; font-display:swap;
-  src:url("ebgaramond-700.woff2") format("woff2"); }
+  src:url("ebgaramond-700.woff2?v=20260714trkc") format("woff2"); }
 /* Task 7 Advanced-font picker override: previously Noto Sans was vendored
    here as the one Advanced face judged export-gate-verified. Final-review
    fix-pass dropped it too (final-review fix wave) — it is vendored at 400
@@ -52,3 +76,32 @@
   src:url("manrope-700.woff2") format("woff2"); }
 @font-face { font-family:"IBM Plex Serif"; font-weight:700; font-display:swap;
   src:url("plexserif-700.woff2") format("woff2"); }
+
+/* --- Track B additions (2026-07-14). The no-faux-bold rule still governs:
+   a face ships ONLY at weights it carries for real. Every rule below is a
+   REAL cut (usWeightClass checked in the binary, not inferred from a
+   filename), cmap-verified to carry the stacked-mark stress glyphs
+   (ẫ/ệ/ỡ/ỷ/ữ), and RENDERED against the mandated VN test string before
+   shipping — never trust the label.
+
+   CDA Independence Text 400 — the standout. Same VN-native family as the
+   already-shipped Display 700, whose binary SELF-DECLARES OFL (nameID
+   13/14 — re-checked on this Text cut too, it declares as well). The family
+   ships Display AND Text optical cuts; vendoring the Text/400 means a poster
+   can set its title in the Display cut and its subtitle in the Text cut —
+   one designed system across the title/subtitle split, which is exactly what
+   this face was built for.
+
+   Barber (Thợ Cạo) 700 — VN-native chromatic all-caps display (Republish /
+   Behalf Studio). Real 700. DOCUMENTED-BUT-EXTERNAL licence: the binary says
+   "All rights reserved" and carries no nameID 13/14; the OFL grant rests on
+   BARBER'S OWN specimen PDF (p.1 + p.31, both naming the Barber family, no
+   per-weight carve-out) — archived at licences/barber-specimen.pdf. NB do
+   NOT cite Westgate's PDF for this: its p.25 names "Barber" by templating
+   error. Finesse was REJECTED (its own specimen self-contradicts: p.1 says
+   only Finesse Oblique is OFL, p.29 grants the whole family) — the same
+   defect that dropped Patriot. See licences/PROVENANCE.md. --- */
+@font-face { font-family:"CDA Independence Text"; font-weight:400; font-display:swap;
+  src:url("cda-independence-text-400.woff2") format("woff2"); }
+@font-face { font-family:"Barber"; font-weight:700; font-display:swap;
+  src:url("barber-700.woff2") format("woff2"); }

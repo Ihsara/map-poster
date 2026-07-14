@@ -1,8 +1,18 @@
 * { box-sizing: border-box; }
+:root { --panel-w: 560px; }
 html, body { margin: 0; height: 100%; font-family: "Be Vietnam Pro", system-ui, sans-serif; }
 #app { position: relative; height: 100vh; }
 #stage { position: relative; height: 100%; }
-#map { position: absolute; inset: 0; }
+/* Track A fix: the map is a SIBLING of the panel, not a full-bleed layer
+   underneath it. Previously `inset: 0` made #map the full viewport while the
+   fixed, opaque #preact-panel-root (560px, z-index:5) painted over its right
+   third -- frameBounds() (web/export_preview.js, shared with export.js's crop
+   math) was max-fitting into a box a third of which was invisible. Insetting
+   #map by --panel-w makes map.getCanvas() itself the visible stage, so
+   frameBounds is correct for all 26 layouts with ZERO change to the shared
+   crop math. Uses the SAME --panel-w custom property as #preact-panel-root's
+   width below, so the two numbers cannot drift apart. */
+#map { position: absolute; inset: 0 calc(var(--panel-w) + 24px) 0 0; }
 /* #preact-panel-root: the Preact shell (icon rail + one-section panel +
    persistent export bar — see web-src/App.jsx + web-src/app.css, which owns
    everything INSIDE this mount). Docked as its own fixed sidebar on the
@@ -13,10 +23,15 @@ html, body { margin: 0; height: 100%; font-family: "Be Vietnam Pro", system-ui, 
    backdrop-filter, instead of blurring this div's own opaque fill. The three
    panels paint their own (opaque-enough) backgrounds, so nothing here relies
    on this root having a fill of its own. */
-#preact-panel-root { position: fixed; top: 0; right: 0; bottom: 0; width: 560px; overflow: hidden; z-index: 5; background: transparent; border-left: 1px solid #3a3226; }
+#preact-panel-root { position: fixed; top: 0; right: 0; bottom: 0; width: var(--panel-w); overflow: hidden; z-index: 5; background: transparent; border-left: 1px solid #3a3226; }
 /* Mobile: the shell (web-src/app.css) reflows its OWN grid into a bottom tab
-   bar; here we just make #preact-panel-root cover the full viewport. */
+   bar; here we just make #preact-panel-root cover the full viewport. Track A:
+   the panel is no longer a fixed-width sidebar at this breakpoint -- it goes
+   full-screen -- so #map must NOT keep reserving --panel-w; put it back to
+   full-bleed (inset: 0) or the map would be squeezed into a sliver behind a
+   full-screen panel it can no longer see past. */
 @media (max-width: 780px) {
+  #map { inset: 0; }
   #preact-panel-root { width: 100%; height: 100%; border-left: none; }
 }
 /* Task 7: WYSIWYG export preview overlay (web/export_preview.js) — a crop

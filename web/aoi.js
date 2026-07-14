@@ -19,7 +19,19 @@ window.aoiStore = (function () {
     // is undefined, and the subtitle falls all the way back to "Việt Nam", the
     // exact bug this release removes. A cold-browser live gate cannot see it.
     // Bump this whenever the manifest is re-baked.
-    manifest = await fetch("aoi/manifest.json?v=20260713ux7").then(r => r.json()).catch(() => []);
+    //
+    // AND BUMP aoi.js'S OWN ?v= IN poster.html WHEN YOU BUMP THIS ONE. The URL
+    // below lives INSIDE this file, so a returning visitor holding a cached
+    // aoi.js never even sees the new manifest URL — bumping only the line below
+    // is a no-op for exactly the visitor it is meant to save. Both, or neither.
+    //
+    // Track H (2026-07-14) re-baked the manifest 688 -> 758 rows: the 92 legacy
+    // districts, 70 of them new (ha-noi 30, hai-phong 15, can-tho 9, hue 9,
+    // da-nang 7). A stale manifest here is not corrupt, just INCOMPLETE — those
+    // 70 districts silently do not exist, and hasLegacy stays false for the five
+    // cities that just gained a legacy tier, so the whole Legacy/Current toggle
+    // stays hidden for them. The feature ships invisible.
+    manifest = await fetch("aoi/manifest.json?v=20260714trkh").then(r => r.json()).catch(() => []);
   }
 
   async function sharedFocusUnit(ref) {

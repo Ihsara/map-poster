@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>map-poster — make a map poster of anywhere</title>
 <meta name="description" content="Turn OpenStreetMap into a print-quality poster — pick an area, style it, export at 300 DPI.">
-<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<!-- Track fonts (2026-07-14): 7 vendored woff2 binaries under this URL were
+     Vietnamese-subset shards with no basic Latin; ?v= busts a returning
+     visitor's cached fonts.css / woff2 pair. See vendor/fonts/fonts.css. -->
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=20260714trkc">
 <link rel="stylesheet" href="poster.css?v=20260709fix">
 <style>
   :root {
